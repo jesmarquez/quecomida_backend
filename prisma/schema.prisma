@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vendor {
+  id        String     @id @default(cuid())
+  name      String
+  email     String     @unique
+  phone     String
+  address   String
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  mealPosts MealPost[]
+}
+
+model MealPost {
+  id           String       @id @default(cuid())
+  description  String
+  price        Float
+  isAvailable  Boolean      @default(true)
+  vendorId     String
+  vendor       Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  images       MealImage[]
+  orders       Order[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model MealImage {
+  id         String   @id @default(cuid())
+  imageUrl   String
+  mealPostId String
+  mealPost   MealPost @relation(fields: [mealPostId], references: [id], onDelete: Cascade)
+}
+
+enum OrderStatus {
+  ORDERED
+  READY_FOR_PICKUP
+  HANDED_OVER
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  mealPostId        String
+  mealPost          MealPost    @relation(fields: [mealPostId], references: [id])
+  customerEmail     String
+  quantity          Int
+  status            OrderStatus @default(ORDERED)
+  verificationCode  String
+  isVerified        Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
