@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model PendingVendor {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  phone             String
+  address           String
+  password          String
+  confirmationToken String   @unique
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+}
+
 model Vendor {
   id        String     @id @default(cuid())
   name      String

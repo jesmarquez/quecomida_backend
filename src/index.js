@@ -17,9 +17,9 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-app.use("/vendors", vendorRoutes);
-app.use("/meals", mealRoutes);
-app.use("/orders", orderRoutes);
+app.use("/api/vendors", vendorRoutes);
+app.use("/api/meals", mealRoutes);
+app.use("/api/orders", orderRoutes);
 
 // Catch-all error handler (e.g. multer file-type errors)
 app.use((err, req, res, next) => {
