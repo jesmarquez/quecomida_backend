@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../utils/prisma");
-const { sendConfirmationEmail } = require("../utils/mailer");
+const { sendConfirmationEmail, sendForgetPassword } = require("../utils/mailer");
 
 const CONFIRMATION_EXPIRY_MINUTES = parseInt(process.env.CONFIRMATION_TOKEN_EXPIRY_MINUTES, 10) || 30;
 
@@ -155,4 +155,31 @@ async function getVendor(req, res) {
     res.status('Failed to check getVendor');
   }
 }
-module.exports = { register, login, confirmVendor, getVendor };
+
+async function forgetPassword( req, res) {
+  const { email } = req.body;
+
+  try {
+    if (!email) {
+      return res.status(400).json({ error: "email is required" });
+    }
+    
+    const vendor = await prisma.vendor.findUnique({ where: { email: email } });
+    if (!vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+    
+    const confirmationToken = crypto.randomBytes(32).toString("hex");
+    const changePasswordUrl = `${process.env.FRONTEND_URL}/auth/change-password?token_security=${confirmationToken}&email=${email}`;
+
+    await sendForgetPassword(email, changePasswordUrl);
+
+    return res.status(200).json({
+      'message': 'We sent an email to change your password'
+    });
+  } catch(error) {
+    console.log(error);
+    res.status('Failes send email forget password');
+  }
+}
+module.exports = { register, login, confirmVendor, getVendor, forgetPassword };

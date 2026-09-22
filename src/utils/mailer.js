@@ -48,4 +48,21 @@ async function sendConfirmationEmail(toEmail, confirmUrl) {
   return info;
 }
 
-module.exports = { sendVerificationEmail, generateVerificationCode, sendConfirmationEmail };
+async function sendForgetPassword(toEmail, confirmUrl) {
+  const info = await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: toEmail,
+    subject: "Reset password",
+    text: `Click the link below to reset your password :\n\n${confirmUrl}\n\nThis link expires in ${process.env.CONFIRMATION_TOKEN_EXPIRY_MINUTES || 30} minutes.`,
+    html: `<p>Click the link below to reset your password :</p><p><a href="${confirmUrl}">${confirmUrl}</a></p><p>This link expires in ${process.env.CONFIRMATION_TOKEN_EXPIRY_MINUTES || 30} minutes.</p>`,
+  });
+
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.log(`Preview confirmation email: ${previewUrl}`);
+  }
+
+  return info;
+}
+
+module.exports = { sendVerificationEmail, generateVerificationCode, sendConfirmationEmail, sendForgetPassword };
