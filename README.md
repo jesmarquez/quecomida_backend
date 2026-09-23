@@ -57,8 +57,12 @@ customers place and verify orders by email code, vendors track order status.
 |---|---|---|---|
 | POST | `/vendors/register` | — | `name, email, phone, address, password` |
 | POST | `/vendors/login` | — | `email, password` |
+| POST | `/vendors/forget-password` | — | `email` |
+| POST | `/vendors/reset-password` | — | `token, email, password` |
+| GET | `/vendors/me` | — | `nothing` |
 
-Both return `{ vendor, token }`. Send `token` as `Authorization: Bearer <token>` on protected routes below.
+Register, login, and me return `{ vendor, token }`. Send `token` as `Authorization: Bearer <token>` on protected routes below.
+Forget and reset return `{ message }`.
 
 ### Meals
 | Method | Route | Auth | Notes |
