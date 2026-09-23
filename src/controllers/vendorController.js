@@ -159,6 +159,8 @@ async function getVendor(req, res) {
 async function forgetPassword( req, res) {
   const { email } = req.body;
 
+  const RESET_TOKEN_EXPIRY_MINUTES = parseInt(process.env.RESET_TOKEN_EXPIRY_MINUTES, 10) || 30;
+
   try {
     if (!email) {
       return res.status(400).json({ error: "email is required" });
@@ -169,17 +171,28 @@ async function forgetPassword( req, res) {
       return res.status(404).json({ error: "Vendor not found" });
     }
     
-    const confirmationToken = crypto.randomBytes(32).toString("hex");
-    const changePasswordUrl = `${process.env.FRONTEND_URL}/auth/change-password?token_security=${confirmationToken}&email=${email}`;
+    if (vendor) {
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const changePasswordUrl = `${process.env.FRONTEND_URL}/auth/change-password?token_security=${resetToken}&email=${email}`;
+      const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000);
+      
+      await prisma.vendor.update({
+        where: { id: vendor.id },
+        data: { resetToken, resetTokenExpiry },
+      });
+      
+      await sendForgetPassword(email, changePasswordUrl);
 
-    await sendForgetPassword(email, changePasswordUrl);
+      return res.status(200).json({
+        'message': 'We sent an email to change your password'
+      });
+    }
 
-    return res.status(200).json({
-      'message': 'We sent an email to change your password'
-    });
+    return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+
   } catch(error) {
     console.log(error);
-    res.status('Failes send email forget password');
+    res.status(500).json({error: 'Failed to proccess password reset request'});
   }
 }
 module.exports = { register, login, confirmVendor, getVendor, forgetPassword };

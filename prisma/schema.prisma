@@ -20,15 +20,17 @@ model PendingVendor {
 }
 
 model Vendor {
-  id        String     @id @default(cuid())
-  name      String
-  email     String     @unique
-  phone     String
-  address   String
-  password  String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  mealPosts MealPost[]
+  id                String     @id @default(cuid())
+  name              String
+  email             String     @unique
+  phone             String
+  address           String
+  password          String
+  resetToken        String?    @unique
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  mealPosts         MealPost[]
 }
 
 model MealPost {
