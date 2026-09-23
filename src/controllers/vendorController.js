@@ -195,4 +195,34 @@ async function forgetPassword( req, res) {
     res.status(500).json({error: 'Failed to proccess password reset request'});
   }
 }
-module.exports = { register, login, confirmVendor, getVendor, forgetPassword };
+
+// POST /api/vendors/reset-password
+// Vendor submits the token (from the emailed link) and a new password.
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: "token and password are required" });
+    }
+
+    const vendor = await prisma.vendor.findUnique({ where: { resetToken: token } });
+
+    if (!vendor || !vendor.resetTokenExpiry || vendor.resetTokenExpiry < new Date()) {
+      return res.status(400).json({ error: "Invalid or expired reset link" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { password: hashedPassword, resetToken: null, resetTokenExpiry: null },
+    });
+
+    res.json({ message: "Password updated. You can now log in with your new password." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+}
+module.exports = { register, login, confirmVendor, getVendor, forgetPassword, resetPassword };
