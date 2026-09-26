@@ -33,17 +33,26 @@ model Vendor {
   mealPosts         MealPost[]
 }
 
+enum DietaryInfo {
+  GLUTEN_FREE
+  VEGAN
+  CARNIVORE
+  ITALIAN
+}
+
 model MealPost {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   description  String
   price        Float
-  isAvailable  Boolean      @default(true)
+  isAvailable  Boolean       @default(true)
   vendorId     String
-  vendor       Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor       Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   images       MealImage[]
   orders       Order[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  dietaryTags  DietaryInfo[]
+  customTags   String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model MealImage {
