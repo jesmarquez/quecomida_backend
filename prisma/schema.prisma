@@ -42,6 +42,7 @@ enum DietaryInfo {
 
 model MealPost {
   id           String        @id @default(cuid())
+  title        String
   description  String
   price        Float
   isAvailable  Boolean       @default(true)

@@ -48,10 +48,10 @@ async function getMealById(req, res) {
 // POST /meals — vendor creates a meal post; expects multipart form with "images" files
 async function createMeal(req, res) {
   try {
-    const { description, price } = req.body;
+    const { title, description, price, dietaryTags, customTags } = req.body;
 
-    if (!description || !price) {
-      return res.status(400).json({ error: "description and price are required" });
+    if (!title || !description || !price) {
+      return res.status(400).json({ error: "title, description and price are required" });
     }
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "At least one image is required" });
@@ -59,9 +59,12 @@ async function createMeal(req, res) {
 
     const meal = await prisma.mealPost.create({
       data: {
+        title,
         description,
         price: parseFloat(price),
         vendorId: req.vendorId,
+        dietaryTags: dietaryTags ? JSON.parse(dietaryTags) : [],
+        customTags: customTags ? JSON.parse(customTags) : [],
         images: {
           create: req.files.map((file) => ({ imageUrl: `/uploads/${file.filename}` })),
         },
@@ -85,7 +88,7 @@ async function updateMeal(req, res) {
       return res.status(403).json({ error: "You don't own this meal post" });
     }
 
-    const { description, price } = req.body;
+    const { title, description, price } = req.body;
     const newImages = req.files && req.files.length > 0
       ? { create: req.files.map((file) => ({ imageUrl: `/uploads/${file.filename}` })) }
       : undefined;
@@ -93,6 +96,7 @@ async function updateMeal(req, res) {
     const updated = await prisma.mealPost.update({
       where: { id: req.params.id },
       data: {
+        ...(title && { title }),
         ...(description && { description }),
         ...(price && { price: parseFloat(price) }),
         ...(newImages && { images: newImages }),
