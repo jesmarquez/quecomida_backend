@@ -48,7 +48,7 @@ async function getMealById(req, res) {
 // POST /meals — vendor creates a meal post; expects multipart form with "images" files
 async function createMeal(req, res) {
   try {
-    const { title, description, price, dietaryTags, customTags } = req.body;
+    const { title, description, price, dietaryTags, customTags, isAvailable } = req.body;
 
     if (!title || !description || !price) {
       return res.status(400).json({ error: "title, description and price are required" });
@@ -63,6 +63,7 @@ async function createMeal(req, res) {
         description,
         price: parseFloat(price),
         vendorId: req.vendorId,
+        isAvailable: isAvailable === 'true',
         dietaryTags: dietaryTags ? JSON.parse(dietaryTags) : [],
         customTags: customTags ? JSON.parse(customTags) : [],
         images: {
