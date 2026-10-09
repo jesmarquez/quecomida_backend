@@ -1,4 +1,6 @@
 const prisma = require("../utils/prisma");
+const fs = require("fs");
+const path = require("path");
 
 // GET /meals — public, only shows available meals to customers
 async function listPublishedMeals(req, res) {
@@ -80,16 +82,33 @@ async function createMeal(req, res) {
   }
 }
 
-// PUT /meals/:id — vendor updates description/price (and optionally adds more images)
+// PUT /meals/:id — vendor updates fields, optionally removes existing images, optionally adds new ones
 async function updateMeal(req, res) {
   try {
-    const meal = await prisma.mealPost.findUnique({ where: { id: req.params.id } });
+    const meal = await prisma.mealPost.findUnique({
+      where: { id: req.params.id },
+      include: { images: true },
+    });
     if (!meal) return res.status(404).json({ error: "Meal post not found" });
     if (meal.vendorId !== req.vendorId) {
       return res.status(403).json({ error: "You don't own this meal post" });
     }
 
-    const { title, description, price } = req.body;
+    const { title, description, price, isAvailable, dietaryTags, customTags, removedImageIds } = req.body;
+
+    // Figure out which existing images to delete, if any were marked for removal
+    const idsToRemove = removedImageIds ? JSON.parse(removedImageIds) : [];
+    const imagesToDelete = meal.images.filter((img) => idsToRemove.includes(img.id));
+
+    // Delete the actual files from disk for the removed images (best-effort —
+    // don't fail the whole request if a file is already missing)
+    imagesToDelete.forEach((img) => {
+      const filePath = path.join(__dirname, "..", "..", img.imageUrl.replace(/^\//, ""));
+      fs.unlink(filePath, (err) => {
+        if (err) console.error(`Failed to delete file ${filePath}:`, err.message);
+      });
+    });
+
     const newImages = req.files && req.files.length > 0
       ? { create: req.files.map((file) => ({ imageUrl: `/uploads/${file.filename}` })) }
       : undefined;
@@ -100,7 +119,13 @@ async function updateMeal(req, res) {
         ...(title && { title }),
         ...(description && { description }),
         ...(price && { price: parseFloat(price) }),
-        ...(newImages && { images: newImages }),
+        ...(isAvailable !== undefined && { isAvailable: isAvailable === "true" }),
+        ...(dietaryTags && { dietaryTags: JSON.parse(dietaryTags) }),
+        ...(customTags && { customTags: JSON.parse(customTags) }),
+        ...(idsToRemove.length > 0 && {
+          images: { deleteMany: { id: { in: idsToRemove } } },
+        }),
+        ...(newImages && { images: { ...(idsToRemove.length > 0 ? { deleteMany: { id: { in: idsToRemove } } } : {}), ...newImages } }),
       },
       include: { images: true },
     });

@@ -12,6 +12,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 // Serve uploaded meal images statically, e.g. http://localhost:4000/uploads/<file>
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
