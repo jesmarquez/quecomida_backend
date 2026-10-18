@@ -70,7 +70,14 @@ async function getOrderById(req, res) {
   try {
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
-      include: { mealPost: { select: { description: true, price: true } } },
+      select: {
+        id: true,
+        quantity: true,
+        status: true,
+        isVerified: true,
+        createdAt: true,
+        mealPost: { select: { title: true, price: true } },
+      },
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
     res.json(order);
