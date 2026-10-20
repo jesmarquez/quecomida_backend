@@ -96,7 +96,7 @@ async function listVendorOrders(req, res) {
         ...(req.query.status && { status: req.query.status }),
         ...(req.query.mealPostId && { mealPostId: req.query.mealPostId }),
       },
-      include: { mealPost: { select: { id: true, description: true, price: true } } },
+      include: { mealPost: { select: { id: true, title: true, price: true } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(orders);
