@@ -72,11 +72,12 @@ async function getOrderById(req, res) {
       where: { id: req.params.id },
       select: {
         id: true,
+        customerEmail: true,
         quantity: true,
         status: true,
         isVerified: true,
         createdAt: true,
-        mealPost: { select: { title: true, price: true } },
+        mealPost: { select: { title: true, price: true, images: true} },
       },
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
