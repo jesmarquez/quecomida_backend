@@ -172,6 +172,13 @@ async function deleteMeal(req, res) {
       return res.status(403).json({ error: "You don't own this meal post" });
     }
 
+    const orderCount = await prisma.order.count({ where: { mealPostId: req.params.id } });
+    if (orderCount > 0) {
+      return res.status(409).json({
+        error: "This meal has orders and can't be deleted. Mark it unavailable instead.",
+      });
+    }
+    
     await prisma.mealPost.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (err) {
