@@ -166,12 +166,17 @@ async function updateAvailability(req, res) {
 // DELETE /meals/:id
 async function deleteMeal(req, res) {
   try {
-    const meal = await prisma.mealPost.findUnique({ where: { id: req.params.id } });
+    const meal = await prisma.mealPost.findUnique({ 
+      where: { id: req.params.id }, 
+      include: { images: true },
+    });
+
     if (!meal) return res.status(404).json({ error: "Meal post not found" });
     if (meal.vendorId !== req.vendorId) {
       return res.status(403).json({ error: "You don't own this meal post" });
     }
 
+    
     const orderCount = await prisma.order.count({ where: { mealPostId: req.params.id } });
     if (orderCount > 0) {
       return res.status(409).json({
@@ -180,6 +185,15 @@ async function deleteMeal(req, res) {
     }
     
     await prisma.mealPost.delete({ where: { id: req.params.id } });
+    // delete image file from disk    
+    meal.images.forEach((img) => {
+      const filePath = path.join(__dirname, "..", "..", img.imageUrl.replace(/^\//, ""));
+      fs.unlink(filePath, (err) => {
+        if (err) console.error(`Failed to delete file ${filePath}:`, err.message);
+      });
+    });
+
+    
     res.status(204).send();
   } catch (err) {
     console.error(err);
