@@ -59,6 +59,7 @@ model MealPost {
 model MealImage {
   id         String   @id @default(cuid())
   imageUrl   String
+  publicId   String?
   mealPostId String
   mealPost   MealPost @relation(fields: [mealPostId], references: [id], onDelete: Cascade)
 }

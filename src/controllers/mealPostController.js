@@ -1,6 +1,5 @@
 const prisma = require("../utils/prisma");
-const fs = require("fs");
-const path = require("path");
+const { uploadFiles, deleteImage } = require("../utils/cloudinary");
 
 // GET /meals — public, only shows available meals to customers
 async function listPublishedMeals(req, res) {
@@ -49,33 +48,38 @@ async function getMealById(req, res) {
 
 // POST /meals — vendor creates a meal post; expects multipart form with "images" files
 async function createMeal(req, res) {
-  try {
-    const { title, description, price, dietaryTags, customTags, isAvailable } = req.body;
+try {
+    const { title, description, price, isAvailable, dietaryTags, customTags } = req.body;
 
     if (!title || !description || !price) {
-      return res.status(400).json({ error: "title, description and price are required" });
+      return res.status(400).json({ error: "title, description, and price are required" });
     }
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
-    const meal = await prisma.mealPost.create({
-      data: {
-        title,
-        description,
-        price: parseFloat(price),
-        vendorId: req.vendorId,
-        isAvailable: isAvailable === 'true',
-        dietaryTags: dietaryTags ? JSON.parse(dietaryTags) : [],
-        customTags: customTags ? JSON.parse(customTags) : [],
-        images: {
-          create: req.files.map((file) => ({ imageUrl: `/uploads/${file.filename}` })),
-        },
-      },
-      include: { images: true },
-    });
+    const uploaded = await uploadFiles(req.files);
 
-    res.status(201).json(meal);
+    try {
+      const meal = await prisma.mealPost.create({
+        data: {
+          title,
+          description,
+          price: parseFloat(price),
+          isAvailable: isAvailable === "true",
+          dietaryTags: dietaryTags ? JSON.parse(dietaryTags) : [],
+          customTags: customTags ? JSON.parse(customTags) : [],
+          vendorId: req.vendorId,
+          images: { create: uploaded },
+        },
+        include: { images: true },
+      });
+      res.status(201).json(meal);
+    } catch (err) {
+      // the database write failed, so don't leave orphaned uploads in Cloudinary
+      await Promise.all(uploaded.map((i) => deleteImage(i.publicId)));
+      throw err;
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create meal post" });
@@ -96,41 +100,36 @@ async function updateMeal(req, res) {
 
     const { title, description, price, isAvailable, dietaryTags, customTags, removedImageIds } = req.body;
 
-    // Figure out which existing images to delete, if any were marked for removal
     const idsToRemove = removedImageIds ? JSON.parse(removedImageIds) : [];
     const imagesToDelete = meal.images.filter((img) => idsToRemove.includes(img.id));
+    const uploaded = req.files && req.files.length > 0 ? await uploadFiles(req.files) : [];
 
-    // Delete the actual files from disk for the removed images (best-effort —
-    // don't fail the whole request if a file is already missing)
-    imagesToDelete.forEach((img) => {
-      const filePath = path.join(__dirname, "..", "..", img.imageUrl.replace(/^\//, ""));
-      fs.unlink(filePath, (err) => {
-        if (err) console.error(`Failed to delete file ${filePath}:`, err.message);
+    const imagesOp = {};
+    if (idsToRemove.length > 0) imagesOp.deleteMany = { id: { in: idsToRemove } };
+    if (uploaded.length > 0) imagesOp.create = uploaded;
+
+    try {
+      const updated = await prisma.mealPost.update({
+        where: { id: req.params.id },
+        data: {
+          ...(title && { title }),
+          ...(description && { description }),
+          ...(price && { price: parseFloat(price) }),
+          ...(isAvailable !== undefined && { isAvailable: isAvailable === "true" }),
+          ...(dietaryTags && { dietaryTags: JSON.parse(dietaryTags) }),
+          ...(customTags && { customTags: JSON.parse(customTags) }),
+          ...(Object.keys(imagesOp).length > 0 && { images: imagesOp }),
+        },
+        include: { images: true },
       });
-    });
 
-    const newImages = req.files && req.files.length > 0
-      ? { create: req.files.map((file) => ({ imageUrl: `/uploads/${file.filename}` })) }
-      : undefined;
-
-    const updated = await prisma.mealPost.update({
-      where: { id: req.params.id },
-      data: {
-        ...(title && { title }),
-        ...(description && { description }),
-        ...(price && { price: parseFloat(price) }),
-        ...(isAvailable !== undefined && { isAvailable: isAvailable === "true" }),
-        ...(dietaryTags && { dietaryTags: JSON.parse(dietaryTags) }),
-        ...(customTags && { customTags: JSON.parse(customTags) }),
-        ...(idsToRemove.length > 0 && {
-          images: { deleteMany: { id: { in: idsToRemove } } },
-        }),
-        ...(newImages && { images: { ...(idsToRemove.length > 0 ? { deleteMany: { id: { in: idsToRemove } } } : {}), ...newImages } }),
-      },
-      include: { images: true },
-    });
-
-    res.json(updated);
+      // only delete the old images from Cloudinary once the database update succeeded
+      await Promise.all(imagesToDelete.map((img) => deleteImage(img.publicId)));
+      res.json(updated);
+    } catch (err) {
+      await Promise.all(uploaded.map((i) => deleteImage(i.publicId)));
+      throw err;
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update meal post" });
@@ -186,13 +185,7 @@ async function deleteMeal(req, res) {
     
     await prisma.mealPost.delete({ where: { id: req.params.id } });
     // delete image file from disk    
-    meal.images.forEach((img) => {
-      const filePath = path.join(__dirname, "..", "..", img.imageUrl.replace(/^\//, ""));
-      fs.unlink(filePath, (err) => {
-        if (err) console.error(`Failed to delete file ${filePath}:`, err.message);
-      });
-    });
-
+    await Promise.all(meal.images.map((img) => deleteImage(img.publicId)));
     
     res.status(204).send();
   } catch (err) {

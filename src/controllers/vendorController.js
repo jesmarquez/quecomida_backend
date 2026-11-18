@@ -92,7 +92,7 @@ async function confirmVendor(req, res) {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
 
-    res.redirect(`${process.env.FRONTEND_URL}/dashboard?token=${sessionToken}`);
+    res.redirect(`${process.env.FRONTEND_URL}/#/dashboard?token=${sessionToken}`);
   } catch (err) {
     console.error(err);
     res.redirect(`${failureUrl}?reason=server_error`);
@@ -173,7 +173,7 @@ async function forgetPassword( req, res) {
     
     if (vendor) {
       const resetToken = crypto.randomBytes(32).toString("hex");
-      const changePasswordUrl = `${process.env.FRONTEND_URL}/auth/change-password?token_security=${resetToken}&email=${email}`;
+      const changePasswordUrl = `${process.env.FRONTEND_URL}/#/auth/change-password?token_security=${resetToken}&email=${email}`;
       const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000);
       
       await prisma.vendor.update({
